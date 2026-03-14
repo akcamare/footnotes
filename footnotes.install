@@ -112,9 +112,89 @@ function footnotes_update_10001() {
 }
 
 /**
- * Ensure that footer disable is set to its default false.
+ * Upgrade 3.x footnote content to 4.x and ensure footer disable default.
+ *
+ * Prerequisites: The module must be on the 4.x branch with CKEditor 5 and
+ * the footnotes button added to the toolbar before running this update.
  */
 function footnotes_update_10002() {
+  // Verify prerequisites: CKEditor 5 module is enabled and at least one text
+  // format has the footnotes toolbar button configured.
+  $module_handler = \Drupal::moduleHandler();
+  if (!$module_handler->moduleExists('ckeditor5')) {
+    throw new \Drupal\Core\Utility\UpdateException('CKEditor 5 module is not enabled. Enable it and add the Footnotes button to a toolbar before running this update.');
+  }
+
+  $has_footnotes_toolbar = FALSE;
+  foreach (\Drupal::configFactory()->listAll('editor.editor.') as $editor_config_name) {
+    $toolbar_items = \Drupal::configFactory()->get($editor_config_name)->get('settings.toolbar.items') ?? [];
+    if (in_array('footnotes', $toolbar_items, TRUE)) {
+      $has_footnotes_toolbar = TRUE;
+      break;
+    }
+  }
+  if (!$has_footnotes_toolbar) {
+    throw new \Drupal\Core\Utility\UpdateException('No CKEditor 5 toolbar has the Footnotes button configured. Add it to at least one toolbar before running this update.');
+  }
+
+  // Upgrade 3.x footnote syntax (<fn>, [fn], [footnotes]) to 4.x <footnotes>
+  // for node, paragraph, and block_content entity types.
+  $entity_type_manager = \Drupal::entityTypeManager();
+  $entity_field_manager = \Drupal::service('entity_field.manager');
+  $entity_type_bundle_info = \Drupal::service('entity_type.bundle.info');
+  $formatted_types = ['text', 'text_long', 'text_with_summary'];
+  $options = ['use-data-text' => TRUE];
+
+  foreach (['node', 'paragraph', 'block_content'] as $entity_type) {
+    try {
+      $storage = $entity_type_manager->getStorage($entity_type);
+    }
+    catch (\Exception $e) {
+      continue;
+    }
+
+    // Collect all formatted text fields across all bundles, keyed by entity ID.
+    $entity_id_fields = [];
+    foreach ($entity_type_bundle_info->getBundleInfo($entity_type) as $bundle => $bundle_data) {
+      try {
+        $field_definitions = $entity_field_manager->getFieldDefinitions($entity_type, $bundle);
+      }
+      catch (\Exception $e) {
+        continue;
+      }
+
+      foreach ($field_definitions as $field_name => $field_definition) {
+        if (!in_array($field_definition->getType(), $formatted_types)) {
+          continue;
+        }
+
+        $query = $storage->getQuery();
+        $query->exists($field_name . '.value');
+        $query->accessCheck(FALSE);
+        $condition_group = $query->orConditionGroup();
+        $condition_group->condition($field_name . '.value', '%<fn%', 'LIKE');
+        $condition_group->condition($field_name . '.value', '%[fn%', 'LIKE');
+        $condition_group->condition($field_name . '.value', '%[footnotes%', 'LIKE');
+        $query->condition($condition_group);
+
+        foreach ($query->execute() as $entity_id) {
+          $entity_id_fields[$entity_id][] = $field_name;
+        }
+      }
+    }
+
+    foreach ($entity_id_fields as $entity_id => $fields) {
+      $context = [];
+      \Drupal\footnotes\Upgrade\FootnotesUpgradeBatchManager::processItem(
+        $entity_type,
+        (int) $entity_id,
+        array_unique($fields),
+        $options,
+        $context
+      );
+    }
+  }
+
   $format_configs = \Drupal::configFactory()->listAll('filter.format.');
   foreach ($format_configs as $format_config) {
     $config = \Drupal::configFactory()->getEditable($format_config);
@@ -155,18 +235,4 @@ function footnotes_update_10004() {
   return t('Footnote text format already exists, skipping.');
 }
 
-/**
- * Ensure that footer dialog has its default set to false.
- */
-function footnotes_update_10003() {
-  $format_configs = \Drupal::configFactory()->listAll('filter.format.');
-  foreach ($format_configs as $format_config) {
-    $config = \Drupal::configFactory()->getEditable($format_config);
-    $settings = $config->get('filters.filter_footnotes.settings');
-    if (!isset($settings['footnotes_dialog'])) {
-      $settings['footnotes_dialog'] = FALSE;
-      $config->set('filters.filter_footnotes.settings', $settings);
-      $config->save();
-    }
-  }
-}
+
