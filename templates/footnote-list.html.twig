@@ -14,9 +14,6 @@
              line even though they have the same backlink number. #}
           {% for footnote in footnote_group %}
             <li class="footnotes__item-wrapper js-footnote-reference">
-              <span class="footnotes__item-backlinks">
-                <a class="footnotes__item-backlink{{ footnote.is_auto ? ' js-is-auto' }}" href="#{{ footnote.ref_id }}" id="{{ footnote.fn_id }}">{{ footnote.backlink_value }}</a>
-              </span>
               <span class="footnotes__item-text js-footnote-reference-text">{{ footnote.text }}</span>
             </li>
           {% endfor %}
@@ -26,11 +23,6 @@
           {# The values and texts are the same, combine them into a single
              line and output multiple backlinks. #}
           <li class="footnotes__item-wrapper js-footnote-reference {{ footnote_group|length > 1 ? ' has-multiple' }}">
-            <span class="footnotes__item-backlinks">
-              {% for footnote in footnote_group %}
-                <a class="footnotes__item-backlink{{ footnote.is_auto ? ' js-is-auto' }}{{ loop.last ? '' : ' has-next' }}" href="#{{ footnote.ref_id }}" id="{{ footnote.fn_id }}">{{ footnote.backlink_value }}</a>
-              {% endfor %}
-            </span>
             <span class="footnotes__item-text js-footnote-reference-text">{{ first_footnote.text }}</span>
           </li>
         {% endif %}
