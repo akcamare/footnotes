@@ -25,12 +25,12 @@ A new database update hook `footnotes_update_10004` has been added. It ensures t
 
 ## templates/footnote-link.html.twig
 
-The CSS class on the citation anchor element has been changed:
+The CSS classes on the citation anchor element have been updated:
 
 - **Before:** `class="footnote__citation js-footnote-citation"`
-- **After:** `class="see-footnote"`
+- **After:** `class="see-footnote footnote__citation js-footnote-citations"`
 
-This aligns the markup with UC Law SF's existing CSS conventions and removes the JavaScript hook class that is not used in this deployment.
+The `see-footnote` class has been added to align with UC Law SF's existing CSS conventions. The original `footnote__citation` class has been retained. The JavaScript hook class has been restored but corrected to the plural form `js-footnote-citations` (was `js-footnote-citation` in the upstream).
 
 ## templates/footnote-links.html.twig
 
@@ -93,7 +93,7 @@ The footnotes modal is configured at **Configuration > Text Formats > Footnotes*
 
 Copy the templates into your theme as needed and clear the theme registry cache (`drush cc theme-registry`).
 
-* `footnote-link.html.twig` — The individual citation link. In this fork, uses the class `see-footnote` instead of the upstream `footnote__citation`.
+* `footnote-link.html.twig` — The individual citation link. In this fork, uses the classes `see-footnote footnote__citation js-footnote-citations`.
 * `footnote-links.html.twig` — Multiple citations rendered inline next to each other. In this fork, the wrapping `<span>` has been removed.
 * `footnote-list.html.twig` — The footnote list rendered after the text (or in the footnotes group block). In this fork, backlinks have been removed from this output.
 
